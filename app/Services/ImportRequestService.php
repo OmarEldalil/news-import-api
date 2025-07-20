@@ -11,9 +11,9 @@ use App\Exceptions\StorageException;
 use App\Models\ImportRequest;
 use App\Repositories\ImportRequestRepository;
 use Carbon\Carbon;
-use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ImportRequestService
@@ -38,7 +38,10 @@ class ImportRequestService
 
         $storagePath = $this->csvService->storeCSV(ImportRequests::IMPORT_REQUESTS_CSV_FILES_DIRECTORY, Str::uuid()->toString(), $csvFile);
 
-        $importRequest = $this->importRequestRepository->storeImportRequest($storagePath);
+        $importRequest = $this->importRequestRepository->storeImportRequest(
+            $storagePath,
+            substr(htmlentities($csvFile->getClientOriginalName(), ENT_QUOTES, 'UTF-8'), 0, ImportRequests::MAX_FILE_NAME_LENGTH)
+        );
 
         ImportRequestCreated::dispatch($importRequest);
 
@@ -101,7 +104,7 @@ class ImportRequestService
     /**
      * @throws ImportRequestException
      */
-    public function getImportRequests(?int $id, ?string $status): ImportRequest | Paginator | null
+    public function getImportRequests(?int $id, ?string $status): Collection | ImportRequest
     {
         if ($id) {
             $importRequest = $this->importRequestRepository->findImportRequest($id);
@@ -111,7 +114,17 @@ class ImportRequestService
             return $importRequest;
         }
 
-        return $this->importRequestRepository->findImportRequests($status);
+        $paginatedImportRequests = $this->importRequestRepository->getImportRequestsWithStatus($status);
+
+        return $this->transformImportRequests($paginatedImportRequests);
+    }
+
+    private function transformImportRequests(CursorPaginator $importRequests): Collection
+    {
+        return collect([
+            'records' => $importRequests->items(),
+            'cursor' => $importRequests->nextCursor()?->encode(),
+        ]);
     }
 
     private function getImportCsvFileStoragePath(string $fileName): string

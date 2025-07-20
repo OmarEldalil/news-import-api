@@ -4,18 +4,19 @@ namespace App\Repositories;
 
 use App\Constants\ImportRequests;
 use App\Models\ImportRequest;
-use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Support\Facades\Log;
 
 class ImportRequestRepository
 {
 
-    public function storeImportRequest(string $filePath): ImportRequest
+    public function storeImportRequest(string $filePath, $originalFileName): ImportRequest
     {
 
         $importRequest = new ImportRequest();
 
         $importRequest->file_path = $filePath;
+        $importRequest->original_file_name = $originalFileName;
         $importRequest->status = ImportRequests::NEW;
 
         $importRequest->save();
@@ -24,7 +25,7 @@ class ImportRequestRepository
 
     }
 
-    public function updateImportRequest(int $id, ?string $status = null, ?string $processedAt = null, ?string $errorReportPath = null): ImportRequest | null
+    public function updateImportRequest(int $id, ?string $status = null, ?string $processedAt = null, ?string $errorReportPath = null): ImportRequest|null
     {
         $importRequest = ImportRequest::find($id);
 
@@ -33,33 +34,26 @@ class ImportRequestRepository
             return null;
         }
 
-        if (empty($status) && empty($processedAt) && empty($errorReportPath)) {
-            return $importRequest;
-        }
+        $updates = array_filter([
+            'status' => $status,
+            'processed_at' => $processedAt,
+            'error_report_path' => $errorReportPath,
+        ]);
 
-        if (!empty($status)) {
-            $importRequest->status = $status;
+        if ($updates) {
+            $importRequest->update($updates);
         }
-
-        if (!empty($processedAt)) {
-            $importRequest->processed_at = $processedAt;
-        }
-
-        if (!empty($errorReportPath)) {
-            $importRequest->error_report_path = $errorReportPath;
-        }
-
-        $importRequest->save();
 
         return $importRequest;
     }
 
-    public function findImportRequest(int $id): ImportRequest | null
+    public function findImportRequest(int $id): ImportRequest|null
     {
         return ImportRequest::find($id);
     }
-    public function findImportRequests(string $status): Paginator
+
+    public function getImportRequestsWithStatus(string $status): CursorPaginator
     {
-        return ImportRequest::where('status', $status)->simplePaginate(ImportRequests::PAGINATION_PER_PAGE);
+        return ImportRequest::orderBy('id', 'DESC')->where('status', $status)->cursorPaginate(ImportRequests::PAGINATION_PER_PAGE);
     }
 }

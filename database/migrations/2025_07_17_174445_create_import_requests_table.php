@@ -15,6 +15,7 @@ return new class extends Migration
         Schema::create('import_requests', function (Blueprint $table) {
             $table->id();
             $table->string('file_path');
+            $table->string('original_file_name');
             $table->enum('status', ImportRequests::STATUS_LABELS)->default(ImportRequests::NEW);
             $table->timestamp('created_at')->useCurrent();
             $table->string('error_report_path')->nullable();

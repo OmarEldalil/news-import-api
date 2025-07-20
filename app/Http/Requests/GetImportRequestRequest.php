@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use App\Constants\ImportRequests;
 use Illuminate\Foundation\Http\FormRequest;
 
-class GetImageRequestRequest extends FormRequest
+class GetImportRequestRequest extends FormRequest
 {
     /**
      * Get the validation rules that apply to the request.

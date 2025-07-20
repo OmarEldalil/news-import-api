@@ -88,8 +88,8 @@ class CSVService
     {
         $handle = $this->getFileOpenHandle($filePath);
 
+        $rowNumber = 0;
         try {
-            $rowNumber = 0;
             $currentChunk = [];
             $currentParseErrors = [];
             $header = fgetcsv($handle, '4096');
@@ -122,7 +122,10 @@ class CSVService
         } catch (CSVFileException $e) {
             throw $e;
         } catch (Exception $e) {
-            Log::error($e->getMessage());
+            Log::error('Error processing CSV file: ' . $e->getMessage(), [
+                'file_path' => $filePath,
+                'row_number' => $rowNumber,
+            ]);
         } finally {
             fclose($handle);
         }

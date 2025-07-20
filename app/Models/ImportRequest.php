@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereErrorReportPath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereFilePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest where($key, $value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereProcessedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ImportRequest whereStatus($value)
@@ -26,9 +27,14 @@ use Illuminate\Support\Facades\Storage;
  */
 class ImportRequest extends Model
 {
-    // TODO: store original file name for readability
     public $timestamps = false;
 
+    protected $fillable = [
+        "original_file_name",
+        "status",
+        "processed_at",
+        "error_report_path",
+    ];
     protected $hidden = ['file_path'];
 
     protected function errorReportPath(): Attribute

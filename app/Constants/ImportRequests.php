@@ -29,4 +29,6 @@ class ImportRequests
     const int CHUNK_SIZE = 500;
 
     const int PAGINATION_PER_PAGE = 10;
+
+    const int MAX_FILE_NAME_LENGTH = 255;
 }

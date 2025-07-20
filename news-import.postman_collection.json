@@ -1,0 +1,148 @@
+{
+    "info": {
+        "_postman_id": "68c8bd58-0458-4243-af03-115bb13a8829",
+        "name": "news-import Copy",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "_exporter_id": "6378304"
+    },
+    "item": [
+        {
+            "name": "import-news",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "exec": [
+                            ""
+                        ],
+                        "type": "text/javascript"
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "let responseData = pm.response.json();",
+                            "pm.globals.set(\"id\", responseData.data.id);"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "news_file",
+                            "type": "file",
+                            "src": []
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "http://localhost:8000/api/import-requests",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8000",
+                    "path": [
+                        "api",
+                        "import-requests"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "get import request",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "localhost:8000/api/import-requests?id={{id}}",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8000",
+                    "path": [
+                        "api",
+                        "import-requests"
+                    ],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "error",
+                            "disabled": true
+                        },
+                        {
+                            "key": "id",
+                            "value": "{{id}}"
+                        },
+                        {
+                            "key": "cursor",
+                            "value": "eyJpZCI6MTAsIl9wb2ludHNUb05leHRJdGVtcyI6dHJ1ZX0",
+                            "disabled": true
+                        }
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "get error report",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "localhost:8000/storage/errors/csv_files/5a90f93c-76af-4027-aafb-b96bb11cdd60.csv",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8000",
+                    "path": [
+                        "storage",
+                        "errors",
+                        "csv_files",
+                        "5a90f93c-76af-4027-aafb-b96bb11cdd60.csv"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "health",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "localhost:8000/api/health",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8000",
+                    "path": [
+                        "api",
+                        "health"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ]
+}
