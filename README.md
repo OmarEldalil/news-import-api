@@ -237,3 +237,10 @@ The application provides comprehensive error handling:
 - **Queue Errors**: Background job processing failures
 
 Error reports are generated as CSV files and accessible via the API when processing fails.
+
+## Notes
+
+- For simplicity, .env.docker is used for environment variables, shouldn't be committed in proper cases.
+- I assumed Categories should be unique to avoid duplications, hence they are fetched for each record that might not be optimal for large CSVs. 
+    - Possible solution-1: Create an index on the `name` column of the `categories` table to speed up lookups. (still many queries) (I chose it for simplicity, the background job is not expected to handle large CSVs so no bad UX)
+    - Possible solution-2: 'name' could be hashed and category records are accumulated, and bulk insert them in the same transaction of the batch insert—using ON CONFLICT (id) DO NOTHING—(better performance, works properly in a distributed manner, however costly in insertions and possible hash collisions)
