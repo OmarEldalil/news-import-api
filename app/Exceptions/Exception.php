@@ -3,21 +3,31 @@
 namespace App\Exceptions;
 
 use App\Constants\Errors;
+use Symfony\Component\HttpFoundation\Response;
 
 class Exception extends \Exception
 {
-    private mixed $httpCode;
+    /**
+     * @var int
+     */
+    private int $httpCode;
+    private ?array $payload;
 
-    public function __construct($errorCode)
+    public function __construct(int $code, ?string $customMessage = null, ?array $payload = null)
     {
-        $this->httpCode = Errors::HTTP_STATUS_CODES[$errorCode];
-        $this->message = Errors::MESSAGES[$errorCode];
-        parent::__construct(Errors::MESSAGES[$errorCode], $errorCode);
+        $this->httpCode = !empty(Errors::HTTP_STATUS_CODES[$code]) ? Errors::HTTP_STATUS_CODES[$code] : Response::HTTP_INTERNAL_SERVER_ERROR;
+        $this->message = !empty($customMessage) ? $customMessage : (!empty(Errors::MESSAGES[$code]) ? Errors::MESSAGES[$code] : "An error occurred. Please try again later.");
+        $this->payload = $payload;
+        parent::__construct($this->message, $code);
     }
 
-    public function getHttpStatusCode(): int
+    public function getHttpCode(): int
     {
         return $this->httpCode;
     }
 
+    public function getPayload(): ?array
+    {
+        return $this->payload;
+    }
 }

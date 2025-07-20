@@ -19,4 +19,11 @@ class GetImageRequestRequest extends FormRequest
             'status' => 'required_without:id|in:' . implode(',', ImportRequests::STATUS_LABELS),
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'status.in' => 'The selected status is invalid. Valid statuses are: ' . implode(', ', ImportRequests::STATUS_LABELS),
+        ];
+    }
 }

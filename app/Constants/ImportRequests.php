@@ -4,28 +4,29 @@ namespace App\Constants;
 
 class ImportRequests
 {
-    const NEW = 'new';
-    const IN_PROGRESS = 'in_progress';
-    const COMPLETED = 'completed';
-    const ERROR = 'error';
+    const string NEW = 'new';
+    const string IN_PROGRESS = 'in_progress';
+    const string COMPLETED = 'completed';
+    const string ERROR = 'error';
 
-    const STATUS_LABELS = [
+    const array STATUS_LABELS = [
         self::NEW,
         self::IN_PROGRESS,
         self::COMPLETED,
         self::ERROR,
     ];
 
-    const REQUIRED_CSV_HEADERS = [
+    const array REQUIRED_CSV_HEADERS = [
         'title',
         'content',
-        'category'
+        'category',
+        'url'
     ];
 
-    const IMPORT_REQUESTS_CSV_FILES_DIRECTORY = 'import_requests/csv_files';
-    const ERRORS_CSV_FILES_DIRECTORY = 'errors/csv_files';
+    const string IMPORT_REQUESTS_CSV_FILES_DIRECTORY = 'import_requests/csv_files';
+    const string ERRORS_CSV_FILES_DIRECTORY = 'errors/csv_files';
 
-    const CHUNK_SIZE = 500;
+    const int CHUNK_SIZE = 500;
 
-    const PAGINATION_PER_PAGE = 10;
+    const int PAGINATION_PER_PAGE = 10;
 }

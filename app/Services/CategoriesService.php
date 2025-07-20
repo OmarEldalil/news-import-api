@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Exceptions\GeneralException;
-use App\Models\Category;
+use App\Constants\Errors;
+use App\Exceptions\DatabaseException;
 use App\Repositories\CategoryRepository;
 use Illuminate\Support\Str;
 
@@ -16,9 +16,12 @@ class CategoriesService
         $this->categoryRepository = $categoryRepository;
     }
 
-    const CATEGORY_SEPARATOR = '-';
+    const string CATEGORY_SEPARATOR = '-';
 
 
+    /**
+     * @throws DatabaseException
+     */
     public function getOrStoreCategoriesFromCategoryString(string $categoriesStr): array
     {
         $categoriesNames = $this->filterCategoriesString($categoriesStr);
@@ -36,6 +39,9 @@ class CategoriesService
 
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function storeBatchCategories(array $categoriesNames): array
     {
         $categories = array_map(function ($category) {
@@ -47,7 +53,7 @@ class CategoriesService
 
         $res = $this->categoryRepository->insertMany($categories);
         if (!$res) {
-            throw new GeneralException("Failed to store categories: " . implode(', ', $categoriesNames));
+            throw new DatabaseException(Errors::DATABASE_ERROR, "Failed to store categories: " . implode(', ', $categoriesNames));
         }
 
         return $categories;

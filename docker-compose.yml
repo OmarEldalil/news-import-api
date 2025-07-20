@@ -1,0 +1,31 @@
+services:
+    redis:
+        image: redis:latest
+        container_name: redis
+        ports:
+            - "6379:6379"
+    api:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: api
+        ports:
+            - "8000:8000"
+        depends_on:
+            - redis
+        volumes:
+            - storage-volume:/var/www/storage
+    worker:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: worker
+        depends_on:
+            - redis
+        command: ["php", "artisan", "queue:work"]
+        restart: always
+        volumes:
+            - storage-volume:/var/www/storage
+
+volumes:
+    storage-volume:

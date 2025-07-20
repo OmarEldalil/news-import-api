@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\News;
+use App\Exceptions\DatabaseException;
 use App\Repositories\NewsCategoriesRepository;
 use App\Repositories\NewsRepository;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+
 
 class NewsService
 {
@@ -27,9 +29,12 @@ class NewsService
         $this->newsCategoriesRepository = $newsCategoriesRepository;
     }
 
-    public function storeNewsChunk(array $rows): array
+    /**
+     * @throws DatabaseException
+     */
+    public function storeNewsChunk(array $rows, array $parseErrors): array
     {
-        $errors = [];
+        $errors = $parseErrors;
         $newsRows = [];
         $newsCategoriesRecords = [];
         foreach ($rows as $colNumber => $row) {
@@ -38,7 +43,7 @@ class NewsService
                 $errors[] = ['column_number' => $colNumber, 'error' => $validationResult];
                 continue;
             }
-            $row['id'] = (string)\Str::ulid();
+            $row['id'] = (string) Str::ulid();
 
 
             $categories = $this->categoriesService->getOrStoreCategoriesFromCategoryString($row['category']);
@@ -77,7 +82,7 @@ class NewsService
         return true;
     }
 
-    private function storeBatchNews($newsRows, $newsCategoriesRows)
+    private function storeBatchNews($newsRows, $newsCategoriesRows): void
     {
         $this->databaseService->transaction(function () use ($newsRows, $newsCategoriesRows) {
             $this->newsRepository->insertManyNews($newsRows);

@@ -2,19 +2,23 @@
 
 namespace App\Services;
 
+use App\Constants\Errors;
 use App\Constants\ImportRequests;
 use App\Events\ImportRequestCreated;
-use App\Exceptions\NotFoundException;
+use App\Exceptions\CSVFileException;
+use App\Exceptions\ImportRequestException;
+use App\Exceptions\StorageException;
 use App\Models\ImportRequest;
 use App\Repositories\ImportRequestRepository;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ImportRequestService
 {
-    protected CSVService $csvService;
+    private CSVService $csvService;
     private ImportRequestRepository $importRequestRepository;
     private NewsService $newsService;
 
@@ -25,13 +29,14 @@ class ImportRequestService
         $this->newsService = $newsService;
     }
 
+    /**
+     * @throws CSVFileException|StorageException
+     */
     public function storeImportRequest(UploadedFile $csvFile): ImportRequest
     {
-        $this->csvService->validateCsvHeader($csvFile, ImportRequests::REQUIRED_CSV_HEADERS);
+        $this->csvService->validateCsvFileHeader($csvFile, ImportRequests::REQUIRED_CSV_HEADERS);
 
-        $fileName = Str::uuid()->toString();
-
-        $storagePath = $this->csvService->storeCSV(ImportRequests::IMPORT_REQUESTS_CSV_FILES_DIRECTORY, $fileName, $csvFile->getContent());
+        $storagePath = $this->csvService->storeCSV(ImportRequests::IMPORT_REQUESTS_CSV_FILES_DIRECTORY, Str::uuid()->toString(), $csvFile);
 
         $importRequest = $this->importRequestRepository->storeImportRequest($storagePath);
 
@@ -41,22 +46,43 @@ class ImportRequestService
 
     }
 
+    /**
+     * @throws CSVFileException|StorageException
+     */
     public function processImportRequest(ImportRequest $importRequest): void
     {
-        $this->importRequestRepository->updateImportRequest($importRequest->id, ImportRequests::IN_PROGRESS);
-        $errors = [];
-        $this->csvService->getCSVRows(
-            ($importRequest->file_path),
-            function ($rows) use ($importRequest, &$errors) {
-                $batchErrors = $this->newsService->storeNewsChunk($rows);
-                $errors = array_merge($errors, $batchErrors);
-            });
+        $this->handleImportRequestStart($importRequest);
+
+        $errors = $this->executeImportRequestBatches($importRequest);
 
         $this->handleImportCompletion($importRequest, $errors);
 
     }
 
-    private function handleImportCompletion(ImportRequest $importRequest, array $errors)
+    private function handleImportRequestStart(ImportRequest $importRequest): void
+    {
+        $this->importRequestRepository->updateImportRequest($importRequest->id, ImportRequests::IN_PROGRESS);
+    }
+
+    /**
+     * @throws CSVFileException
+     */
+    private function executeImportRequestBatches(ImportRequest $importRequest): array
+    {
+        $errors = [];
+        $this->csvService->processCSVRowsStream(
+            $this->getImportCsvFileStoragePath($importRequest->file_path),
+            function ($rows, $parseErrors) use ($importRequest, &$errors) {
+                $batchErrors = $this->newsService->storeNewsChunk($rows, $parseErrors);
+                $errors = array_merge($errors, $batchErrors);
+            });
+        return $errors;
+    }
+
+    /**
+     * @throws StorageException
+     */
+    private function handleImportCompletion(ImportRequest $importRequest, array $errors): void
     {
         if (count($errors)) {
             $csvFileName = (string)Str::uuid();
@@ -72,12 +98,15 @@ class ImportRequestService
         );
     }
 
+    /**
+     * @throws ImportRequestException
+     */
     public function getImportRequests(?int $id, ?string $status): ImportRequest | Paginator | null
     {
         if ($id) {
             $importRequest = $this->importRequestRepository->findImportRequest($id);
             if (empty($importRequest)) {
-                throw new NotFoundException("Import request with ID $id not found.");
+                throw new ImportRequestException(Errors::NOT_FOUND_ERROR, "Import request not found.");
             }
             return $importRequest;
         }
@@ -85,4 +114,8 @@ class ImportRequestService
         return $this->importRequestRepository->findImportRequests($status);
     }
 
+    private function getImportCsvFileStoragePath(string $fileName): string
+    {
+        return FileStorageService::getFullQualifiedFileStoragePath($fileName);
+    }
 }

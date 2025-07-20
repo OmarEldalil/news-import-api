@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Constants\ImportRequests;
 use App\Models\ImportRequest;
 use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Support\Facades\Log;
 
 class ImportRequestRepository
 {
@@ -23,12 +24,13 @@ class ImportRequestRepository
 
     }
 
-    public function updateImportRequest(int $id, string $status = null, string $processedAt = null, string $errorReportPath = null): ImportRequest
+    public function updateImportRequest(int $id, ?string $status = null, ?string $processedAt = null, ?string $errorReportPath = null): ImportRequest | null
     {
         $importRequest = ImportRequest::find($id);
 
         if (empty($importRequest)) {
-            throw new \Exception("Import request with ID $id not found.");
+            Log::warning('ImportRequest not found for ID when update record: ' . $id);
+            return null;
         }
 
         if (empty($status) && empty($processedAt) && empty($errorReportPath)) {

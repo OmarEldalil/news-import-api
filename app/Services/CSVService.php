@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Constants\Errors;
 use App\Constants\ImportRequests;
-use InvalidArgumentException;
+use App\Exceptions\CSVFileException;
+use App\Exceptions\StorageException;
+use Exception;
 use Illuminate\Http\UploadedFile;
-use function PHPUnit\Framework\isArray;
+use Illuminate\Support\Facades\Log;
 
 class CSVService
 {
@@ -17,15 +20,18 @@ class CSVService
     }
 
 
+    /**
+     * @throws CSVFileException
+     */
     private function readCSVHeader(string $filePath): array
     {
-        $handle = $this->getFileHandle($filePath);
+        $handle = $this->getFileOpenHandle($filePath);
 
         try {
             $header = fgetcsv($handle, '4096');
 
             if ($header === false) {
-                throw new InvalidArgumentException('Unable to read CSV headers');
+                throw new CSVFileException(Errors::UNABLE_TO_READ_CSV_HEADER_ERROR);
             }
 
         } finally {
@@ -35,10 +41,13 @@ class CSVService
         return $header;
     }
 
-    public function validateCsvHeader(UploadedFile $file, array $expectedHeader): bool
+    /**
+     * @throws CSVFileException
+     */
+    public function validateCsvFileHeader(UploadedFile $file, array $expectedHeader): bool
     {
         if (!$file->isValid()) {
-            throw new InvalidArgumentException('Invalid file uploaded');
+            throw new CSVFileException(Errors::INVALID_FILE_ERROR);
         }
 
         $header = $this->readCSVHeader($file->getPathname());
@@ -48,7 +57,7 @@ class CSVService
 
         $differences = array_diff($expectedHeader, $header);
         if (!empty($differences)) {
-            throw new InvalidArgumentException('CSV headers do not match expected format -> "' . implode(', ', $differences) . '" not found');
+            throw new CSVFileException(Errors::CSV_HEADER_DOES_NOT_MATCH_ERROR, 'The CSV header does not match the expected format. Missing columns: ' . implode(', ', $differences));
         }
         return true;
 
@@ -59,58 +68,74 @@ class CSVService
         return array_map(fn($h) => trim(strtolower($h)), $header);
     }
 
-    public function storeCSV(string $directory, string $fileName, string $fileContent, $isPrivate = true): string
+    /**
+     * @throws StorageException
+     */
+    public function storeCSV(string $directory, string $fileName, UploadedFile|string $file, $isPrivate = true): string
     {
-        if($isPrivate){
-            return $this->fileStorageService->storePrivateFile($directory, $fileName . '.csv', $fileContent);
+        if ($isPrivate) {
+            return $this->fileStorageService->storePrivateFile($directory, $fileName . '.csv', $file);
         }
-        return $this->fileStorageService->storePublicFile($directory, $fileName . '.csv', $fileContent);
+        return $this->fileStorageService->storePublicFile($directory, $fileName . '.csv', $file);
     }
 
-    public function getCSVRows(string $filePath, callable $cb, int $chunkSize = ImportRequests::CHUNK_SIZE): array
+    /**
+     * Processes CSV rows in chunks and calls the provided callback for each chunk in order not to load the entire file into memory.
+     * This is an efficient way to handle large CSV files.
+     * @throws CSVFileException
+     */
+    public function processCSVRowsStream(string $filePath, callable $cb, int $chunkSize = ImportRequests::CHUNK_SIZE): void
     {
-        $handle = $this->getFileHandle($filePath);
+        $handle = $this->getFileOpenHandle($filePath);
 
         try {
             $rowNumber = 0;
             $currentChunk = [];
+            $currentParseErrors = [];
             $header = fgetcsv($handle, '4096');
 
             if ($header === false) {
-                throw new InvalidArgumentException('Unable to read CSV headers');
+                throw new CSVFileException(Errors::UNABLE_TO_READ_CSV_HEADER_ERROR);
             }
 
             while ($row = fgetcsv($handle, '4096')) {
                 $rowNumber++;
-                $currentChunk[$rowNumber] = array_combine($header, $row);
+
+                if (count($row) !== count($header)) {
+                    $currentParseErrors[] = ['column_number' => $rowNumber, 'error' => 'CSV row does not match header length'];
+                } else {
+                    $currentChunk[$rowNumber] = array_combine($header, $row);
+                }
+
                 if ($rowNumber % $chunkSize === 0) {
-                    \Log::info('chunk', ['rowNumber' => $rowNumber, 'currentChunkSize' => count($currentChunk)]);
-                    // Call the callback with the current chunk of rows
-                    $cb($currentChunk);
+                    $cb($currentChunk, $currentParseErrors);
                     $currentChunk = [];
+                    $currentParseErrors = [];
                 }
             }
-            \Log::info('last chunk', ['rowNumber' => $rowNumber, 'currentChunkSize' => count($currentChunk)]);
+            Log::info('last chunk', ['rowNumber' => $rowNumber, 'currentChunkSize' => count($currentChunk)]);
             // If there are any remaining rows in the current chunk, call the callback
             if (!empty($currentChunk)) {
-                $cb($currentChunk);
+                $cb($currentChunk, $currentParseErrors);
             }
 
-        } catch (\Exception $e) {
-            \Log::error($e->getMessage());
+        } catch (CSVFileException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            Log::error($e->getMessage());
         } finally {
             fclose($handle);
         }
-
-        return $header;
-
     }
 
-    private function getFileHandle(string $filePath)
+    /**
+     * @throws CSVFileException
+     */
+    private function getFileOpenHandle(string $filePath)
     {
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
-            throw new InvalidArgumentException('Unable to open CSV file');
+            throw new CSVFileException(Errors::UNABLE_TO_OPEN_CSV_ERROR);
         }
         return $handle;
     }
@@ -126,13 +151,12 @@ class CSVService
         foreach ($rows as $row) {
             $sanitizedRow = array_map(function ($value) {
                 $escapedValue = str_replace('"', '""', $value);
-                if(str_contains($escapedValue, "\n") || str_contains($escapedValue, "\r")) {
+                if (str_contains($escapedValue, "\n") || str_contains($escapedValue, "\r")) {
                     return '"' . $escapedValue . '"';
                 }
                 return $escapedValue;
             }, array_values($row));
 
-            \Log::info('CSV Row', ['row' => $sanitizedRow]);
             $csvContent .= implode(',', $sanitizedRow) . "\n";
         }
         return $csvContent;

@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CSVFileException;
+use App\Exceptions\ImportRequestException;
+use App\Exceptions\StorageException;
 use App\Http\Requests\GetImageRequestRequest;
 use App\Http\Requests\StoreImageRequestRequest;
 use App\Services\GeneralService;
@@ -18,17 +21,24 @@ class ImportRequestController extends Controller
         $this->importRequestService = $importRequestService;
     }
 
+    /**
+     * @throws CSVFileException
+     * @throws StorageException
+     */
     public function store(StoreImageRequestRequest $request): JsonResponse
     {
         $data = $this->importRequestService->storeImportRequest($request->file('news_file'));
 
-        return $this->generalService->respondWithSuccess($data->toArray(), "Import request created successfully.");
+        return $this->generalService->respondWithSuccess($data->toArray(), "Import request created successfully.", 201);
     }
 
+    /**
+     * @throws ImportRequestException
+     */
     public function get(GetImageRequestRequest $request): JsonResponse
     {
         $data = $this->importRequestService->getImportRequests($request->input('id'), $request->input('status'));
-        return $this->generalService->respondWithSuccess($data->toArray(), "Import request created successfully.");
+        return $this->generalService->respondWithSuccess($data->toArray());
 
     }
 }
